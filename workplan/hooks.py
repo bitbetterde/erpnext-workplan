@@ -132,9 +132,9 @@ app_license = "agpl-3.0"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"Leave Application": "workplan.workplan.overrides.leave_application.CustomLeaveApplication"
-# }
+override_doctype_class = {
+	"Leave Application": "workplan.workplan.overrides.leave_application_warning_suppress.CustomLeaveApplication"
+}
 
 # Document Events
 # ---------------
