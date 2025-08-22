@@ -141,14 +141,19 @@ app_license = "agpl-3.0"
 # Hook on document methods and events
 
 doc_events = {
-	"Leave Allocation": {
-		"before_insert": "workplan.workplan.overrides.leave_allocation.update"
-	}
+	"Leave Allocation": {"before_insert": "workplan.workplan.overrides.leave_allocation.update"},
+	"Employee": {
+		"before_save": "workplan.workplan.overrides.leave_allocation_new.update_all_allocations",
+		"validate": "workplan.workplan.overrides.workplan_validation.validate_workplans",
+	},
 }
 
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+	"cron": {"0 0 1 1 *": ["workplan.workplan.overrides.new_allocations_cronjob.allocate_all_next_year"]}
+}
 # scheduler_events = {
 # 	"all": [
 # 		"workplan.tasks.all"
@@ -243,4 +248,4 @@ override_whitelisted_methods = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
-fixtures = ["Custom Field", "Client Script"]
+fixtures = ["Custom Field", "Client Script", {"doctype": "Workflow"}, {"doctype": "Workflow State"}]
