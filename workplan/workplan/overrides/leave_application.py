@@ -1,14 +1,60 @@
-import frappe
 import datetime
+
+import frappe
 import hrms
-
-from frappe.utils import (
-	date_diff
-)
-
-from hrms.hr.doctype.leave_application.leave_application import (get_holidays)
-from hrms.utils.holiday_list import (get_holiday_dates_between)
 from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
+from frappe.utils import date_diff, getdate
+from hrms.hr.doctype.leave_application.leave_application import get_holidays
+from hrms.utils.holiday_list import get_holiday_dates_between
+
+from workplan.workplan.overrides.leave_allocation_new import get_current_workplan, get_next_workplan
+
+
+def get_number_of_leave_days_for_workplan(
+	employee: str,
+	leave_type: str,
+	from_date: datetime.date,
+	to_date: datetime.date,
+	workplan,
+) -> float:
+	"""Returns number of leave days between 2 dates after considering half day and holidays
+	(Based on the include_holiday setting in Leave Type)"""
+
+	print(f"get_number_of_leave_days {employee} {leave_type} {from_date} {to_date}")
+	number_of_weekdays = get_weekdays_diff(from_date, to_date)
+
+	print(f"number_of_weekdays {number_of_weekdays}")
+
+	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
+		print(f"Leave Type {leave_type} not includes holidays as leaves")
+		holiday_list_local = get_holiday_list_for_employee(employee)
+		holidays_between_from_to: list[datetime.date] = get_holiday_dates_between(
+			holiday_list_local, from_date.isoformat(), to_date.isoformat()
+		)
+		for holiday in holidays_between_from_to:
+			number_of_weekdays[holiday.weekday()] = (
+				number_of_weekdays[holiday.weekday()] - 1 if number_of_weekdays[holiday.weekday()] > 0 else 0
+			)
+	else:
+		print(f"Leave Type {leave_type} includes holidays as leaves")
+
+	employee = frappe.get_doc("Employee", employee)
+	sum_working_hours = 0
+	for i, days in enumerate(number_of_weekdays):
+		match i:
+			case 0:
+				sum_working_hours += workplan.monday * days
+			case 1:
+				sum_working_hours += workplan.tuesday * days
+			case 2:
+				sum_working_hours += workplan.wednesday * days
+			case 3:
+				sum_working_hours += workplan.thursday * days
+			case 4:
+				sum_working_hours += workplan.friday * days
+
+	print(f"Sum_working_hours {sum_working_hours}")
+	return sum_working_hours / 8
 
 
 @frappe.whitelist()
@@ -23,40 +69,28 @@ def get_number_of_leave_days(
 ) -> float:
 	"""Returns number of leave days between 2 dates after considering half day and holidays
 	(Based on the include_holiday setting in Leave Type)"""
-
-	print(f"get_number_of_leave_days {employee} {leave_type} {from_date} {to_date}")
-	number_of_weekdays = get_weekdays_diff(from_date, to_date)
-
-	print(f"number_of_weekdays {number_of_weekdays}")
-
-	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
-		print(f"Leave Type {leave_type} not includes holidays as leaves")
-		holiday_list_local = get_holiday_list_for_employee(employee)
-		holidays_between_from_to: list[datetime.date] = get_holiday_dates_between(
-			holiday_list_local, from_date.isoformat(), to_date.isoformat())
-		for holiday in holidays_between_from_to:
-			number_of_weekdays[holiday.weekday()] = number_of_weekdays[holiday.weekday()] - 1 if \
-				number_of_weekdays[holiday.weekday()] > 0 else 0
-	else:
-		print(f"Leave Type {leave_type} includes holidays as leaves")
-
-	employee = frappe.get_doc("Employee", employee)
-	sum_working_hours = 0
-	for i, days in enumerate(number_of_weekdays):
-		match i:
-			case 0:
-				sum_working_hours += employee.custom_monday * days
-			case 1:
-				sum_working_hours += employee.custom_tuesday * days
-			case 2:
-				sum_working_hours += employee.custom_wednesday * days
-			case 3:
-				sum_working_hours += employee.custom_thursday * days
-			case 4:
-				sum_working_hours += employee.custom_friday * days
-
-	print(f"Sum_working_hours {sum_working_hours}")
-	return sum_working_hours / 8
+	employee_doc = frappe.get_doc("Employee", employee)
+	workplan = get_current_workplan(employee_doc, from_date)
+	result = 0
+	start = from_date
+	if not workplan:
+		return 0
+	if workplan.end:
+		while getdate(workplan.end) < to_date:
+			result += get_number_of_leave_days_for_workplan(
+				employee, leave_type, start, workplan.end, workplan
+			)
+			workplan = get_next_workplan(employee_doc, workplan.end)
+			if not workplan:
+				return 0
+			start = workplan.start
+			if not workplan.end:
+				break
+	if not workplan.end:
+		result += get_number_of_leave_days_for_workplan(employee, leave_type, start, to_date, workplan)
+		return result
+	result += get_number_of_leave_days_for_workplan(employee, leave_type, start, to_date, workplan)
+	return result
 
 
 def get_weekdays_diff(from_date: datetime.date, to_date: datetime.date):
@@ -65,9 +99,7 @@ def get_weekdays_diff(from_date: datetime.date, to_date: datetime.date):
 	fullWeeks = int(numberOfDays / 7)
 	additionalDays = numberOfDays - (fullWeeks * 7)
 
-	result = [
-		fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks
-	]
+	result = [fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks, fullWeeks]
 
 	for x in range(additionalDays):
 		result[(firstWeekday + x) % 7] += 1

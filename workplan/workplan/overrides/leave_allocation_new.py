@@ -84,7 +84,7 @@ def get_current_workplan(employee_doc, date):
 	for w in workplans:
 		start = getdate(w.start) if w.start else None
 		end = getdate(w.end) if w.end else None
-
+		date = getdate(date)
 		if end and start <= date <= end:
 			return w
 		if start <= date and not end:

@@ -13,37 +13,44 @@ from workplan.workplan.overrides.leave_allocation_new import (
 
 
 def execute():
-	if getattr(frappe.local, "workplan_patch_running", False):
-		return
+	frappe.local.workplan_patch_running = True
 	print("Migrating Workplans")
 	# for all employees
 	#   insert workplan to custom_workplans
 	next_year = getdate().year + 1
 	first_day_next_year = getdate(f"{next_year}-01-01")
 	leave_types = frappe.get_all("Leave Type")
-
+	today = getdate()
+	leave_type = "Casual Leave"
 	employees = frappe.get_all("Employee")
 	for e in employees:
-		frappe.local.workplan_patch_running = True
-		today = getdate()
-		leave_type = "Casual Leave"
 		employee_doc = frappe.get_doc("Employee", e.name)
-		policy = get_leave_policy(e.name, leave_type)
-
-		if policy:
-			employee_doc.append(
-				"custom_workplans",
-				{
-					"start": today,
-					"policy": policy,
-					"monday": employee_doc.custom_monday,
-					"tuesday": employee_doc.custom_tuesday,
-					"wednesday": employee_doc.custom_wednesday,
-					"thursday": employee_doc.custom_thursday,
-					"friday": employee_doc.custom_friday,
-				},
-			)
-			employee_doc.save()
+		work_hours = sum(
+			[
+				employee_doc.custom_monday,
+				employee_doc.custom_tuesday,
+				employee_doc.custom_wednesday,
+				employee_doc.custom_thursday,
+				employee_doc.custom_friday,
+			]
+		)
+		if work_hours:
+			employee_doc = frappe.get_doc("Employee", e.name)
+			policy = get_leave_policy(e.name, leave_type)
+			if policy:
+				employee_doc.append(
+					"custom_workplans",
+					{
+						"start": today,
+						"policy": policy,
+						"monday": employee_doc.custom_monday,
+						"tuesday": employee_doc.custom_tuesday,
+						"wednesday": employee_doc.custom_wednesday,
+						"thursday": employee_doc.custom_thursday,
+						"friday": employee_doc.custom_friday,
+					},
+				)
+				employee_doc.save()
 
 		update_allocation_for_year(employee_doc, leave_type, first_day_next_year)
 		for lt in leave_types:
