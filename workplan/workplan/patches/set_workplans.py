@@ -4,7 +4,12 @@ import frappe
 import frappe.utils
 from frappe.utils import getdate
 
-from workplan.workplan.overrides.leave_allocation_new import allocate_other_doctypes
+from workplan.workplan.overrides.leave_allocation_new import (
+	allocate_other_doctypes,
+	get_allocation_name,
+	insert_new_allocation,
+	update_allocation_for_year,
+)
 
 
 def execute():
@@ -13,6 +18,10 @@ def execute():
 	print("Migrating Workplans")
 	# for all employees
 	#   insert workplan to custom_workplans
+	next_year = getdate().year + 1
+	first_day_next_year = getdate(f"{next_year}-01-01")
+	leave_types = frappe.get_all("Leave Type")
+
 	employees = frappe.get_all("Employee")
 	for e in employees:
 		frappe.local.workplan_patch_running = True
@@ -35,6 +44,13 @@ def execute():
 				},
 			)
 			employee_doc.save()
+
+		update_allocation_for_year(employee_doc, leave_type, first_day_next_year)
+		for lt in leave_types:
+			if lt.name != leave_type:
+				allocation_name = get_allocation_name(employee_doc.name, leave_type, first_day_next_year)
+				if not allocation_name:
+					insert_new_allocation(employee_doc.name, leave_type, 0, next_year)
 		frappe.local.workplan_patch_running = False
 
 

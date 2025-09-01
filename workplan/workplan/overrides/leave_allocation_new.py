@@ -2,25 +2,26 @@ import frappe
 from frappe.utils import add_days, getdate
 
 
-def update_all_allocations(doc, method):
+def update_all_allocations(employee_doc, method):
 	if getattr(frappe.local, "workplan_patch_running", False):
 		return
 	today = getdate()
 	next_year = today.year + 1
 	first_day_next_year = getdate(f"{next_year}-01-01")
 	leave_type = "Casual Leave"
-	update_allocation_for_year(doc, leave_type, today)
-	update_allocation_for_year(doc, leave_type, first_day_next_year)
+	update_allocation_for_year(employee_doc, leave_type, today)
+	update_allocation_for_year(employee_doc, leave_type, first_day_next_year)
 
 
-def update_allocation_for_year(doc, leave_type, date):
-	new_allocation_value = calc_new_allocation_value(doc, leave_type, date)
-	allocation_name = get_allocation_name(doc.name, leave_type, date)
+def update_allocation_for_year(employee_doc, leave_type, date):
+	new_allocation_value = calc_new_allocation_value(employee_doc, leave_type, date)
+	allocation_name = get_allocation_name(employee_doc.name, leave_type, date)
 	if allocation_name:
 		update_allocation(allocation_name, new_allocation_value)
 	elif new_allocation_value:
-		insert_new_allocation(doc.name, leave_type, new_allocation_value, date.year)
-		allocate_other_doctypes(doc.name, date, leave_type)
+		if new_allocation_value:
+			insert_new_allocation(employee_doc.name, leave_type, new_allocation_value, date.year)
+		allocate_other_doctypes(employee_doc.name, date, leave_type)
 
 
 def insert_new_allocation(employee_name, leave_type, allocation_value, year):
@@ -129,22 +130,21 @@ def resolve_end(end, year):
 	return getdate(f"{year}-12-31")
 
 
-def calc_sum_from_day(employee_doc, day):
-	today = day
+def calc_sum_from_day(employee_doc, start_day):
 	days_allocated = 0
-	last_day = getdate(f"{today.year}-12-31")
-	workplan = get_current_workplan(employee_doc, today)
+	last_day = getdate(f"{start_day.year}-12-31")
+	workplan = get_current_workplan(employee_doc, start_day)
 	if not workplan:
-		workplan = get_next_workplan(employee_doc, today)
+		workplan = get_next_workplan(employee_doc, start_day)
 	if workplan:
-		end = resolve_end(workplan.end, today.year)
+		end = resolve_end(workplan.end, start_day.year)
 		while workplan and getdate(workplan.start) <= last_day:
 			start = getdate(workplan.start)
-			if start < today:
-				start = today
-			end = resolve_end(workplan.end, today.year)
+			if start < start_day:
+				start = start_day
+			end = resolve_end(workplan.end, start_day.year)
 			work_hours = calc_workplan_sum(workplan)
-			if add_days(getdate(end), 1).year != today.year:
+			if add_days(getdate(end), 1).year != start_day.year:
 				time_share = calc_share_of_year(start, last_day)
 			else:
 				time_share = calc_share_of_year(start, end)
@@ -160,33 +160,27 @@ def calc_sum_from_day(employee_doc, day):
 
 def calc_new_allocation_value(doc, leave_type, day):
 	old = doc.get_doc_before_save()
-	today = day
 	if old:
-		old_allocation_value_rest_of_year = calc_sum_from_day(old, today)
+		old_allocation_value_rest_of_year = calc_sum_from_day(old, day)
 	else:
 		old_allocation_value_rest_of_year = 0
 	old_allocation_sum = get_current_days_allocated(doc, leave_type, day)
 
-	new_allocation_value = calc_sum_from_day(doc, today)
+	new_allocation_value = calc_sum_from_day(doc, day)
 
 	change = new_allocation_value - old_allocation_value_rest_of_year
 	new_allocation_sum = old_allocation_sum + change
 
-	print(old_allocation_value_rest_of_year)
-	print(new_allocation_value)
-	print(old_allocation_sum)
-	print(new_allocation_sum)
-	print(change)
+	# print(old_allocation_value_rest_of_year)
+	# print(new_allocation_value)
+	# print(old_allocation_sum)
+	# print(new_allocation_sum)
+	# print(change)
 	return new_allocation_sum
 
 
 def calc_workplan_sum(workplan) -> float:
-	result = workplan.monday
-	result += workplan.tuesday
-	result += workplan.wednesday
-	result += workplan.thursday
-	result += workplan.friday
-	return result
+	return sum([workplan.monday, workplan.tuesday, workplan.wednesday, workplan.thursday, workplan.friday])
 
 
 def allocate_other_doctypes(employee_name, date, excluded_leave_type):
