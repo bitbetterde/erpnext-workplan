@@ -10,6 +10,7 @@ def validate_workplans(doc, method):
 	validate_workplan_overlaps(doc)
 	validate_future_workplan_starts(doc)
 	validate_used_days(doc)
+	validate_workplan_changes(doc)
 
 
 def validate_workplan_overlaps(doc):
@@ -30,9 +31,7 @@ def validate_workplan_overlaps(doc):
 				end2 = getdate("9999-12-31")
 
 			if (start <= end2) and (start2 <= end):
-				frappe.throw(
-					f"Workplan-Zeiträume überschneiden sich: " f"({start}–{end}) und ({start2}–{end2})"
-				)
+				frappe.throw(f"Work plan periods overlap: " f"({start}–{end}) and ({start2}–{end2})")
 
 
 def validate_future_workplan_starts(doc):
@@ -41,7 +40,7 @@ def validate_future_workplan_starts(doc):
 		if wp.is_new():
 			start = getdate(wp.start)
 			if start < today:
-				frappe.throw(f"Neuer Workplan darf frühestens ab heute ({today}) starten.")
+				frappe.throw(f"New workplan cannot start before ({today}).")
 
 
 def validate_end_after_start(doc):
@@ -49,7 +48,7 @@ def validate_end_after_start(doc):
 		if wp.end:
 			if wp.start > wp.end:
 				frappe.throw(
-					"Ende eines Workplans darf nicht vor dem Start sein. Ein offenes Ende ist möglich, indem das Feld leer 'End' bleibt."
+					"End of a work plan cannot be before start. An open end is possible by leaving the field 'End' empty."
 				)
 
 
@@ -68,3 +67,61 @@ def validate_used_days(doc):
 				"Total allocated leaves {0} cannot be less than already approved leaves {1} for the period"
 			).format(new_allocation, leaves_taken),
 		)
+
+
+def validate_workplan_changes(doc):
+	current_year = getdate().year
+	old_doc = doc.get_doc_before_save()
+
+	old_wps = {wp.name: wp for wp in old_doc.custom_workplans}
+	new_wps = {wp.name: wp for wp in doc.custom_workplans}
+
+	for name, new_wp in new_wps.items():
+		old_wp = old_wps.get(name)
+
+		# start for new workplan
+		if not old_wp:
+			if getdate(new_wp.start).year < current_year:
+				frappe.throw(
+					f"{name}: Start Date of new worplan is {new_wp.start} but cannot be before {current_year}."
+				)
+			continue
+
+		# start
+		if getdate(new_wp.start) != getdate(old_wp.start):
+			if getdate(old_wp.start).year < current_year:
+				frappe.throw(
+					f"Start date cannot be changed because the old start date {old_wp.start} is before  {current_year}."
+				)
+			if getdate(new_wp.start).year < current_year:
+				frappe.throw(f"New start date {new_wp.start} cannot be before {current_year}.")
+
+		# end
+		if getdate(new_wp.end) != getdate(old_wp.end):
+			if old_wp.end:
+				if getdate(old_wp.end).year < current_year:
+					frappe.throw(
+						f"End date cannot be changed to {new_wp.end} because the old end date is before {current_year}."
+					)
+			else:
+				if new_wp.end:
+					if getdate(new_wp.end) < getdate(f"{current_year-1}-12-31"):
+						frappe.throw(
+							f"End date {new_wp.end} is not possible. Earliest possible end date is {current_year-1}-12-31."
+						)
+
+		# hours
+		weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+		for day in weekdays:
+			if getattr(old_wp, day) != getattr(new_wp, day):
+				if getdate(old_wp.start).year < current_year:
+					frappe.throw(f"Workhours before {current_year} cannot be changed.")
+				break
+
+	# deleted
+	for name, old_wp in old_wps.items():
+		if name not in new_wps:
+			if getdate(old_wp.start).year < current_year:
+				frappe.throw(
+					f"Workplan with start date {old_wp.start} cannot be deleted because start date is before {current_year}."
+				)

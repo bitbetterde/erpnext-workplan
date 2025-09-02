@@ -12,6 +12,7 @@ from workplan.workplan.overrides.leave_allocation_new import (
 )
 
 
+# 55 ohne workplan oder stunden 0, 60(!) ohne policy fuer vacation
 def execute():
 	frappe.local.workplan_patch_running = True
 	print("Migrating Workplans")
@@ -34,10 +35,11 @@ def execute():
 				employee_doc.custom_friday,
 			]
 		)
-		if work_hours:
+		# nur anlegen wenn es workplan gibt mit workhours > 0 und es eine policy gibt
+		policy = get_leave_policy(e.name, leave_type)
+		if work_hours and policy:
 			employee_doc = frappe.get_doc("Employee", e.name)
-			policy = get_leave_policy(e.name, leave_type)
-			if policy:
+			if not employee_doc.custom_workplans:
 				employee_doc.append(
 					"custom_workplans",
 					{
@@ -55,13 +57,13 @@ def execute():
 		update_allocation_for_year(employee_doc, leave_type, first_day_next_year)
 		for lt in leave_types:
 			if lt.name != leave_type:
-				allocation_name = get_allocation_name(employee_doc.name, leave_type, first_day_next_year)
-				if not allocation_name:
-					insert_new_allocation(employee_doc.name, leave_type, 0, next_year)
+				allocation_name = get_allocation_name(employee_doc.name, lt.name, first_day_next_year)
+				if not allocation_name and lt.name != "Leave Without Pay":
+					insert_new_allocation(employee_doc.name, lt.name, 0, next_year)
 		frappe.local.workplan_patch_running = False
 
 
-def get_leave_policy(employee, leave_policy):
+def get_leave_policy(employee, leave_type):
 	today = getdate()
 	assignments = frappe.db.sql(
 		"""
@@ -78,7 +80,7 @@ def get_leave_policy(employee, leave_policy):
         AND lpa.docstatus = 1
         AND %s BETWEEN lpa.effective_from AND lpa.effective_to;
         """,
-		(employee, leave_policy, today),
+		(employee, leave_type, today),
 		as_dict=True,
 	)
 	if assignments:

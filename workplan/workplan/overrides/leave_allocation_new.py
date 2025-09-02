@@ -19,8 +19,7 @@ def update_allocation_for_year(employee_doc, leave_type, date):
 	if allocation_name:
 		update_allocation(allocation_name, new_allocation_value)
 	elif new_allocation_value:
-		if new_allocation_value:
-			insert_new_allocation(employee_doc.name, leave_type, new_allocation_value, date.year)
+		insert_new_allocation(employee_doc.name, leave_type, new_allocation_value, date.year)
 		allocate_other_doctypes(employee_doc.name, date, leave_type)
 
 
@@ -43,9 +42,15 @@ def insert_new_allocation(employee_name, leave_type, allocation_value, year):
 
 
 def update_allocation(allocation_name, new_allocated_value):
-	allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
-	allocation_doc.new_leaves_allocated = new_allocated_value
-	allocation_doc.save()
+	if new_allocated_value:
+		print("value")
+		print(new_allocated_value)
+		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+		allocation_doc.new_leaves_allocated = new_allocated_value
+		allocation_doc.save()
+	else:
+		# no allocation leads to deletion
+		frappe.delete_doc("Leave Allocation", allocation_name)
 
 
 def get_allocation_name(employee_name, leave_type, date):
