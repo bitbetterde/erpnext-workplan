@@ -3,8 +3,8 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate
 
 from workplan.workplan.overrides.leave_allocation_new import (
+	calc_allocation_value,
 	calc_new_allocation_value,
-	calc_sum_from_day,
 	get_current_days_allocated,
 	get_policy_value,
 	insert_new_allocation,
@@ -61,22 +61,22 @@ class TestLeaveAllocationUtils(FrappeTestCase):
 
 	def test_calc_sum_from_today(self):
 		start_date = getdate("2026-01-01")
-		days = calc_sum_from_day(self.employee, start_date)
+		days = calc_allocation_value(self.employee, start_date)
 		self.assertTrue(days > 0)
 		self.assertAlmostEqual(days, 12.0, places=1)
 
 	def test_last_day_equal_no_end(self):
 		date = getdate("2026-01-01")
-		no_end_result = calc_sum_from_day(self.employee, date)
+		no_end_result = calc_allocation_value(self.employee, date)
 		self.employee.custom_workplans[0].end = getdate("2026-12-31")
-		last_day_result = calc_sum_from_day(self.employee, date)
+		last_day_result = calc_allocation_value(self.employee, date)
 		self.assertEqual(no_end_result, last_day_result)
 
 	def test_first_day_equal_running_wp(self):
 		date = getdate("2026-01-01")
-		first_day_result = calc_sum_from_day(self.employee, date)
+		first_day_result = calc_allocation_value(self.employee, date)
 		date = getdate("2027-01-01")
-		running_wp_result = calc_sum_from_day(self.employee, date)
+		running_wp_result = calc_allocation_value(self.employee, date)
 		self.assertEqual(first_day_result, running_wp_result)
 
 	def test_work_hours_change(self):
@@ -103,8 +103,8 @@ class TestLeaveAllocationUtils(FrappeTestCase):
 		self.employee.append("custom_workplans", new_wp)
 		self.employee.save()
 
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 9, 1)
-		print(calc_sum_from_day(self.employee, date))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 9, 1)
+		print(calc_allocation_value(self.employee, date))
 
 	def test_policy_change(self):
 		date = getdate("2026-01-01")
@@ -130,8 +130,8 @@ class TestLeaveAllocationUtils(FrappeTestCase):
 		self.employee.append("custom_workplans", new_wp)
 		self.employee.save()
 
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 18, 1)
-		print(calc_sum_from_day(self.employee, date))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 18, 1)
+		print(calc_allocation_value(self.employee, date))
 
 	def test_policy_and_hours_change(self):
 		date = getdate("2026-01-01")
@@ -157,28 +157,28 @@ class TestLeaveAllocationUtils(FrappeTestCase):
 		self.employee.append("custom_workplans", new_wp)
 		self.employee.save()
 
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 9, 1)
-		print(calc_sum_from_day(self.employee, date))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 9, 1)
+		print(calc_allocation_value(self.employee, date))
 
 	def test_workplan_not_to_end(self):
 		date = getdate("2026-01-01")
 		last_day = getdate("2026-06-30")
 		self.employee.custom_workplans[0].end = last_day
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 6, 1)
-		print(calc_sum_from_day(self.employee, date))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 6, 1)
+		print(calc_allocation_value(self.employee, date))
 
 	def test_workplan_not_from_start(self):
 		last_day = getdate("2026-07-01")
 		self.employee.custom_workplans[0].start = last_day
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, last_day), 6, 1)
-		print(calc_sum_from_day(self.employee, last_day))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, last_day), 6, 1)
+		print(calc_allocation_value(self.employee, last_day))
 
 	def test_start_in_future(self):
 		date = getdate("2026-01-01")
 		last_day = getdate("2026-07-01")
 		self.employee.custom_workplans[0].start = last_day
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 6, 1)
-		print(calc_sum_from_day(self.employee, last_day))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 6, 1)
+		print(calc_allocation_value(self.employee, last_day))
 
 	def test_pause_between_wp(self):
 		date = getdate("2026-01-01")
@@ -204,5 +204,5 @@ class TestLeaveAllocationUtils(FrappeTestCase):
 		self.employee.append("custom_workplans", new_wp)
 		self.employee.save()
 
-		self.assertAlmostEqual(calc_sum_from_day(self.employee, date), 9, 1)
-		print(calc_sum_from_day(self.employee, date))
+		self.assertAlmostEqual(calc_allocation_value(self.employee, date), 9, 1)
+		print((self.employee, date))

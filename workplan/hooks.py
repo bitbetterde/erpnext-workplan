@@ -145,6 +145,7 @@ doc_events = {
 	"Employee": {
 		"before_save": "workplan.workplan.overrides.leave_allocation_new.update_all_allocations",
 		"validate": "workplan.workplan.overrides.workplan_validation.validate_workplans",
+		"on_update": "workplan.workplan.overrides.leave_application.update_application_days_value",
 	},
 }
 

@@ -39,28 +39,10 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2025-08-14 10:12:45.621122",
-  "name": "Approved (Company)",
-  "style": "Success",
-  "workflow_state_name": "Approved (Company)"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2025-08-14 10:09:52.307837",
   "name": "Approved (Leaves without Approval)",
   "style": "Success",
   "workflow_state_name": "Approved (Leaves without Approval)"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
-  "modified": "2025-08-06 14:18:50.055735",
-  "name": "Draft",
-  "style": "",
-  "workflow_state_name": "Draft"
  },
  {
   "docstatus": 0,
@@ -70,5 +52,23 @@
   "name": "Pending",
   "style": "",
   "workflow_state_name": "Pending"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-08-14 10:12:45.621122",
+  "name": "Approved (Company)",
+  "style": "Success",
+  "workflow_state_name": "Approved (Company)"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-08-06 14:18:50.055735",
+  "name": "Draft",
+  "style": "",
+  "workflow_state_name": "Draft"
  }
 ]

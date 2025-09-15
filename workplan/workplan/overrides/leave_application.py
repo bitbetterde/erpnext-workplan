@@ -105,3 +105,17 @@ def get_weekdays_diff(from_date: datetime.date, to_date: datetime.date):
 		result[(firstWeekday + x) % 7] += 1
 
 	return result
+
+
+def update_application_days_value(employee_doc, method):
+	# fuer jede application des employee die days neu berechnen
+	applications = frappe.get_all(
+		"Leave Application",
+		filters={"employee": employee_doc.name},
+		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
+	)
+	for application in applications:
+		new_total_leave_days = get_number_of_leave_days(
+			employee_doc.name, application.leave_type, application.from_date, application.to_date
+		)
+		frappe.db.set_value("Leave Application", application.name, "total_leave_days", new_total_leave_days)
