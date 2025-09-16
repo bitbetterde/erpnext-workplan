@@ -249,4 +249,13 @@ override_whitelisted_methods = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
-fixtures = ["Custom Field", "Client Script", {"doctype": "Workflow"}, {"doctype": "Workflow State"}]
+fixtures = [
+	{"doctype": "Custom Field", "filters": {"module": ["in", ["workplan"]]}},
+	{"doctype": "Client Script", "filters": {"module": ["in", ["workplan"]]}},
+	# {
+	# 	"doctype": "Workflow State"
+	# },
+	# {
+	# 	"doctype": "Workflow"
+	# }
+]
