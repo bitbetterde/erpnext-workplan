@@ -20,7 +20,7 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 	leave_types = frappe.get_all("Leave Type")
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt.name)
-		if leave_type_doc.automatic_allocation and not leave_type_doc.name == "Leave Without Pay":
+		if leave_type_doc.automatic_allocation and leave_type_doc.name != "Leave Without Pay":
 			if leave_type_doc.automatic_allocation_calculation:
 				new_allocation_value = calc_allocation_value(
 					employee_doc, first_day_of_year_date, leave_type_doc.name
@@ -28,25 +28,40 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 				allocation_name = get_allocation_name(
 					employee_doc.name, leave_type_doc.name, last_day_of_year_date
 				)
-				if allocation_name:
-					update_allocation(allocation_name, new_allocation_value)
-				elif new_allocation_value:
-					insert_new_allocation(
+				if new_allocation_value:
+					update_allocation(
+						allocation_name,
+						new_allocation_value,
 						employee_doc.name,
 						leave_type_doc.name,
-						new_allocation_value,
 						first_day_of_year_date.year,
 					)
-			elif not get_allocation_name(employee_doc.name, leave_type_doc.name, first_day_of_year_date):
-				insert_new_allocation(employee_doc.name, leave_type_doc.name, 0, first_day_of_year_date.year)
+				else:
+					# no allocation leads to deletion
+					frappe.delete_doc("Leave Allocation", allocation_name)
+			else:
+				allocation_name = get_allocation_name(
+					employee_doc.name, leave_type_doc.name, first_day_of_year_date
+				)
 				if leave_type_doc.is_carry_forward and first_day_of_year_date.year == today.year:
 					carry_forward_days = get_carry_forward_days(
 						employee_doc, leave_type_doc.name, last_day_last_year_date
 					)
-					allocation_name = get_allocation_name(
-						employee_doc.name, leave_type_doc.name, last_day_of_year_date
+					update_allocation(
+						allocation_name,
+						carry_forward_days,
+						employee_doc.name,
+						leave_type_doc.name,
+						first_day_of_year_date.year,
 					)
-					update_allocation(allocation_name, carry_forward_days)
+				else:
+					update_allocation(
+						allocation_name,
+						0,
+						employee_doc.name,
+						leave_type_doc.name,
+						first_day_of_year_date.year,
+					)
 
 
 def get_carry_forward_days(employee_doc, leave_type, carry_forward_from_date):
@@ -77,16 +92,13 @@ def insert_new_allocation(employee_name, leave_type, allocation_value, year):
 	allocation_doc.insert()
 
 
-def update_allocation(allocation_name, new_allocated_value):
-	if new_allocated_value:
-		print("value")
-		print(new_allocated_value)
+def update_allocation(allocation_name, new_allocated_value, employee_name, leave_type, year):
+	if allocation_name:
 		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
 		allocation_doc.new_leaves_allocated = new_allocated_value
 		allocation_doc.save()
 	else:
-		# no allocation leads to deletion
-		frappe.delete_doc("Leave Allocation", allocation_name)
+		insert_new_allocation(employee_name, leave_type, new_allocated_value, year)
 
 
 def get_allocation_name(employee_name, leave_type, date):
@@ -105,15 +117,7 @@ def get_allocation_name(employee_name, leave_type, date):
 	return None
 
 
-def get_current_days_allocated(employee_doc, leave_type, date):
-	allocation_name = get_allocation_name(employee_doc.name, leave_type, date)
-	if allocation_name:
-		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
-		return allocation_doc.new_leaves_allocated
-	return 0
-
-
-def calc_share_of_year(start, end):
+def fraction_of_year(start, end):
 	end = getdate(end)
 	start = getdate(start)
 	days = (end - start).days + 1
@@ -188,13 +192,16 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 			end = resolve_end(workplan.end, from_date.year)
 			work_hours = calc_workplan_sum(workplan)
 			if add_days(getdate(end), 1).year != from_date.year:
-				time_share = calc_share_of_year(start, last_day)
+				time_share = fraction_of_year(start, last_day)
 			else:
-				time_share = calc_share_of_year(start, end)
+				time_share = fraction_of_year(start, end)
 
-			days_allocated_in_time = time_share * get_policy_value(workplan, leave_type) * (work_hours / 40)
-			days_allocated += days_allocated_in_time
+			days_allocated_in_workplan = (
+				time_share * get_policy_value(workplan, leave_type) * (work_hours / 40)
+			)
+			days_allocated += days_allocated_in_workplan
 			workplan = get_next_workplan(employee_doc, end)
+
 	if leave_type_doc.is_carry_forward and from_date.year == today.year:
 		last_day_last_year = getdate(f"{from_date.year-1}-12-31")
 		carry_forward_days = get_carry_forward_days(employee_doc, leave_type, last_day_last_year)
