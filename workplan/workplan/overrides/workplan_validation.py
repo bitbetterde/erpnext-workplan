@@ -43,18 +43,17 @@ def validate_end_after_start(doc):
 
 
 def validate_used_days(doc):
-	today = getdate()
 	leave_type = "Casual Leave"
 	current_year = getdate().year
 	from_date = getdate(f"{current_year}-01-01")
 	to_date = getdate(f"{current_year}-12-31")
 	leaves_taken = get_approved_leaves_for_period(doc.name, leave_type, from_date, to_date)
-	new_allocation = calc_allocation_value(doc, today, leave_type)
+	new_allocation = calc_allocation_value(doc, from_date, leave_type)
 	print(new_allocation)
 	if flt(leaves_taken) > flt(new_allocation):
 		frappe.throw(
 			frappe._(
-				"Total allocated leaves {0} cannot be less than already approved leaves {1} for the period"
+				"Total allocated leave days for workplans {0} cannot be less than already approved leaves {1} for the period"
 			).format(new_allocation, leaves_taken),
 		)
 

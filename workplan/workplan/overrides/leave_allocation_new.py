@@ -20,8 +20,8 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 	leave_types = frappe.get_all("Leave Type")
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt.name)
-		if leave_type_doc.automatic_allocation and leave_type_doc.name != "Leave Without Pay":
-			if leave_type_doc.automatic_allocation_calculation:
+		if leave_type_doc.custom_automatic_allocation and leave_type_doc.name != "Leave Without Pay":
+			if leave_type_doc.custom_automatic_allocation_calculation:
 				new_allocation_value = calc_allocation_value(
 					employee_doc, first_day_of_year_date, leave_type_doc.name
 				)
