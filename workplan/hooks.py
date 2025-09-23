@@ -135,6 +135,7 @@ app_license = "agpl-3.0"
 override_doctype_class = {
 	"Leave Application": "workplan.workplan.overrides.leave_application_validation.CustomLeaveApplication",
 	"Leave Allocation": "workplan.workplan.overrides.supress_leave_allocation_validation.CustomLeaveAllocation",
+	# "Leave Application": "workplan.workplan.overrides.leave_application_warning_suppress.CustomLeaveApplicationWarningSuppress",
 }
 # Document Events
 # ---------------
