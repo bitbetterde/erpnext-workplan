@@ -1,11 +1,7 @@
-import uuid
-
 import frappe
-import frappe.utils
 from frappe.utils import getdate
 
 from workplan.workplan.overrides.leave_allocation_new import (
-	allocate_other_doctypes,
 	get_allocation_name,
 	insert_new_allocation,
 	update_allocation_for_year,
@@ -14,6 +10,14 @@ from workplan.workplan.overrides.leave_allocation_new import (
 
 # 55 ohne workplan oder stunden 0, 60(!) ohne policy fuer vacation
 def execute():
+	leave_types = frappe.get_all("Leave Type")
+	for lt in leave_types:
+		leave_type_doc = frappe.get_doc("Leave Type", lt)
+		leave_type_doc.custom_automatic_allocation = 1
+		if lt == "Vacation":
+			leave_type_doc.custom_automatic_allocation_calculation = 1
+		leave_type_doc.save()
+
 	frappe.local.workplan_patch_running = True
 	print("Migrating Workplans")
 	# for all employees

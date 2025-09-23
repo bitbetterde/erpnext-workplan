@@ -146,6 +146,7 @@ doc_events = {
 	"Employee": {
 		"before_save": "workplan.workplan.overrides.leave_allocation_new.update_all_allocations",
 		"validate": "workplan.workplan.overrides.workplan_validation.validate_workplans",
+		"on_update": "workplan.workplan.overrides.leave_application.update_application_days_value",
 	},
 }
 
@@ -249,4 +250,13 @@ override_whitelisted_methods = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
-fixtures = ["Custom Field", "Client Script", {"doctype": "Workflow"}, {"doctype": "Workflow State"}]
+fixtures = [
+	{"doctype": "Custom Field", "filters": {"module": ["in", ["workplan"]]}},
+	{"doctype": "Client Script", "filters": {"module": ["in", ["workplan"]]}},
+	# {
+	# 	"doctype": "Workflow State"
+	# },
+	# {
+	# 	"doctype": "Workflow"
+	# }
+]
