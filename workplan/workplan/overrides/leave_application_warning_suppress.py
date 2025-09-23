@@ -10,8 +10,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 class CustomLeaveApplication(LeaveApplication):
 	def show_insufficient_balance_message(self, leave_balance_for_consumption: float) -> None:
 		allocation = get_leave_allocation_records(self.employee, self.from_date, self.leave_type)
-		total = allocation[self.leave_type].total_leaves_allocated
-		if total > 0:
+		if allocation[self.leave_type] and allocation[self.leave_type].total_leaves_allocated == 0:
 			# core show_insufficient_balance_message function
 			alloc_on_from_date, alloc_on_to_date = self.get_allocation_based_on_application_dates()
 
