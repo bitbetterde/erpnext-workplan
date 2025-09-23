@@ -2,7 +2,11 @@ import frappe
 from frappe.utils import flt, getdate
 from hrms.hr.doctype.leave_application.leave_application import get_approved_leaves_for_period
 
-from workplan.workplan.overrides.leave_allocation_new import calc_new_allocation_value, get_allocation_name
+from workplan.workplan.overrides.leave_allocation_new import (
+	calc_allocation_value,
+	calc_new_allocation_value,
+	get_allocation_name,
+)
 
 
 def validate_workplans(doc, method):
@@ -53,14 +57,12 @@ def validate_end_after_start(doc):
 
 
 def validate_used_days(doc):
-	today = getdate()
 	leave_type = "Casual Leave"
 	current_year = getdate().year
 	from_date = getdate(f"{current_year}-01-01")
 	to_date = getdate(f"{current_year}-12-31")
 	leaves_taken = get_approved_leaves_for_period(doc.name, leave_type, from_date, to_date)
-	new_allocation = calc_new_allocation_value(doc, leave_type, today)
-	print(new_allocation)
+	new_allocation = calc_allocation_value(doc, from_date, leave_type)
 	if flt(leaves_taken) > flt(new_allocation):
 		frappe.throw(
 			frappe._(

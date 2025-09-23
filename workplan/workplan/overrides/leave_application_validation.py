@@ -1,4 +1,5 @@
 import frappe
+from frappe.utils import add_days, getdate
 from hrms.hr.doctype.leave_application.leave_application import (
 	LeaveApplication,
 	set_employee_name,
@@ -32,7 +33,12 @@ class CustomLeaveApplication(LeaveApplication):
 	def validate_active_workplan(self):
 		employee = frappe.get_doc("Employee", self.employee)
 
-		if get_current_workplan(employee, self.from_date) and get_current_workplan(employee, self.to_date):
-			return
+		date = self.from_date
+		workplan = get_current_workplan(employee, date)
+		while workplan:
+			if getdate(workplan.end) >= getdate(self.to_date):
+				return
+			date = add_days(workplan.end, 1)
+			workplan = get_current_workplan(employee, date)
 
 		frappe.throw("Der gewählte Zeitraum darf nicht ausserhalb von Workplans liegen.")
