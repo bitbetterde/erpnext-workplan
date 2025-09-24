@@ -2,7 +2,17 @@ import frappe
 from frappe.utils import flt, getdate
 from hrms.hr.doctype.leave_application.leave_application import get_approved_leaves_for_period
 
-from workplan.workplan.overrides.leave_allocation_new import calc_allocation_value
+from workplan.workplan.overrides.leave_allocation_new import (
+	calc_allocation_value,
+	get_current_workplan,
+	get_next_workplan,
+	resolve_end,
+)
+from workplan.workplan.overrides.leave_application import (
+	get_number_of_leave_day_for_employee_doc,
+	get_number_of_leave_days,
+	get_number_of_leave_days_for_workplan,
+)
 
 
 def validate_workplans(doc, method):
@@ -43,11 +53,45 @@ def validate_end_after_start(doc):
 
 
 def validate_used_days(doc):
-	leave_type = "Casual Leave"
-	current_year = getdate().year
-	from_date = getdate(f"{current_year}-01-01")
-	to_date = getdate(f"{current_year}-12-31")
-	leaves_taken = get_approved_leaves_for_period(doc.name, leave_type, from_date, to_date)
+	leave_types = frappe.get_all("Leave Type")
+	for lt in leave_types:
+		leave_type_doc = frappe.get_doc("Leave Type", lt.name)
+		if (
+			leave_type_doc.custom_automatic_allocation
+			and leave_type_doc.custom_automatic_allocation_calculation_
+		):
+			validate_used_days_for_year(doc, getdate().year, leave_type_doc.name)
+			validate_used_days_for_year(doc, getdate().year + 1, leave_type_doc.name)
+
+
+def validate_used_days_for_year(doc, year, leave_type):
+	from_date = getdate(f"{year}-01-01")
+	to_date = getdate(f"{year}-12-31")
+
+	applications = frappe.get_all(
+		"Leave Application",
+		filters={
+			"employee": doc.name,
+			"from_date": (">=", from_date),
+			"to_date": ("<=", to_date),
+			"leave_type": leave_type,
+		},
+		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
+	)
+	if not applications:
+		return
+
+	leaves_taken = 0
+	for application in applications:
+		print(
+			get_number_of_leave_day_for_employee_doc(
+				doc, leave_type, application.from_date, application.to_date
+			)
+		)
+		leaves_taken += get_number_of_leave_day_for_employee_doc(
+			doc, leave_type, application.from_date, application.to_date
+		)
+
 	new_allocation = calc_allocation_value(doc, from_date, leave_type)
 	if flt(leaves_taken) > flt(new_allocation):
 		frappe.throw(

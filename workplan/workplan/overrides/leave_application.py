@@ -23,7 +23,7 @@ def get_number_of_leave_days_for_workplan(
 	print(f"get_number_of_leave_days {employee} {leave_type} {from_date} {to_date}")
 	number_of_weekdays = get_weekdays_diff(from_date, to_date)
 
-	print(f"number_of_weekdays {number_of_weekdays}")
+	print(f"number_of_weekdays {number_of_weekdays} {from_date} { to_date}")
 
 	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
 		print(f"Leave Type {leave_type} not includes holidays as leaves")
@@ -70,30 +70,42 @@ def get_number_of_leave_days(
 	"""Returns number of leave days between 2 dates after considering half day and holidays
 	(Based on the include_holiday setting in Leave Type)"""
 	employee_doc = frappe.get_doc("Employee", employee)
+	return get_number_of_leave_day_for_employee_doc(employee_doc, leave_type, from_date, to_date)
+
+
+def get_number_of_leave_day_for_employee_doc(
+	employee_doc,
+	leave_type: str,
+	from_date: datetime.date,
+	to_date: datetime.date,
+) -> float:
+	"""Returns number of leave days between 2 dates after considering half day and holidays
+	(Based on the include_holiday setting in Leave Type)"""
 	workplan = get_current_workplan(employee_doc, from_date)
 	result = 0
 	start = from_date
 	if not workplan:
-		return 0
+		frappe.throw("Workplan for already applied Vacation missing")
 	if workplan.end:
-		while getdate(workplan.end) < to_date:
+		while workplan.end and getdate(workplan.end) < to_date:
 			result += get_number_of_leave_days_for_workplan(
-				employee, leave_type, start, workplan.end, workplan
+				employee_doc.name, leave_type, start, workplan.end, workplan
 			)
 			workplan = get_next_workplan(employee_doc, workplan.end)
 			if not workplan:
-				return 0
+				frappe.throw("Workplan for already applied Vacation missing")
 			start = workplan.start
-			if not workplan.end:
-				break
-	if not workplan.end:
-		result += get_number_of_leave_days_for_workplan(employee, leave_type, start, to_date, workplan)
+
+		result += get_number_of_leave_days_for_workplan(
+			employee_doc.name, leave_type, start, to_date, workplan
+		)
 		return result
-	result += get_number_of_leave_days_for_workplan(employee, leave_type, start, to_date, workplan)
-	return result
+	else:
+		return get_number_of_leave_days_for_workplan(employee_doc.name, leave_type, start, to_date, workplan)
 
 
 def get_weekdays_diff(from_date: datetime.date, to_date: datetime.date):
+	from_date = getdate(from_date)
 	firstWeekday = from_date.weekday()
 	numberOfDays = date_diff(to_date, from_date) + 1
 	fullWeeks = int(numberOfDays / 7)
@@ -109,9 +121,16 @@ def get_weekdays_diff(from_date: datetime.date, to_date: datetime.date):
 
 def update_application_days_value(employee_doc, method):
 	# fuer jede application des employee die days neu berechnen
+	current_year = getdate().year
+	first_day_this_year = getdate(f"{current_year}-01-01")
+	last_day_next_year = getdate(f"{current_year + 1}-12-31")
 	applications = frappe.get_all(
 		"Leave Application",
-		filters={"employee": employee_doc.name},
+		filters={
+			"employee": employee_doc.name,
+			"from_date": (">=", first_day_this_year),
+			"to_date": ("<=", last_day_next_year),
+		},
 		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
 	)
 	for application in applications:
