@@ -49,7 +49,6 @@ def validate_used_days(doc):
 	to_date = getdate(f"{current_year}-12-31")
 	leaves_taken = get_approved_leaves_for_period(doc.name, leave_type, from_date, to_date)
 	new_allocation = calc_allocation_value(doc, from_date, leave_type)
-	print(new_allocation)
 	if flt(leaves_taken) > flt(new_allocation):
 		frappe.throw(
 			frappe._(
