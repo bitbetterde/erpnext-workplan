@@ -21,12 +21,12 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt.name)
 		if leave_type_doc.custom_automatic_allocation and leave_type_doc.is_lwp != 1:
+			allocation_name = get_allocation_name(
+				employee_doc.name, leave_type_doc.name, last_day_of_year_date
+			)
 			if leave_type_doc.custom_automatic_allocation_calculation_:
 				new_allocation_value = calc_allocation_value(
 					employee_doc, first_day_of_year_date, leave_type_doc.name
-				)
-				allocation_name = get_allocation_name(
-					employee_doc.name, leave_type_doc.name, last_day_of_year_date
 				)
 				if new_allocation_value:
 					update_allocation(
@@ -40,9 +40,6 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 					# no allocation leads to deletion
 					frappe.delete_doc("Leave Allocation", allocation_name)
 			else:
-				allocation_name = get_allocation_name(
-					employee_doc.name, leave_type_doc.name, first_day_of_year_date
-				)
 				if leave_type_doc.is_carry_forward and first_day_of_year_date.year == today.year:
 					carry_forward_days = get_carry_forward_days(
 						employee_doc, leave_type_doc.name, last_day_last_year_date
