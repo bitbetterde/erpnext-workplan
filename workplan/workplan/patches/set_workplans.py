@@ -27,7 +27,7 @@ def execute():
 	leave_types = frappe.get_all("Leave Type")
 	today = getdate()
 	leave_type = "Casual Leave"
-	employees = frappe.get_all("Employee")
+	employees = frappe.get_all("Employee", filters={"status": "Active"})
 	for e in employees:
 		employee_doc = frappe.get_doc("Employee", e.name)
 		work_hours = sum(
