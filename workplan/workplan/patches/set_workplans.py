@@ -26,7 +26,7 @@ def execute():
 	first_day_next_year = getdate(f"{next_year}-01-01")
 	leave_types = frappe.get_all("Leave Type")
 	today = getdate()
-	leave_type = "Casual Leave"
+	leave_type = "Vacation"
 	employees = frappe.get_all("Employee", filters={"status": "Active"})
 	for e in employees:
 		employee_doc = frappe.get_doc("Employee", e.name)
@@ -58,12 +58,9 @@ def execute():
 				)
 				employee_doc.save()
 
-		update_allocation_for_year(employee_doc, leave_type, first_day_next_year)
-		for lt in leave_types:
-			if lt.name != leave_type:
-				allocation_name = get_allocation_name(employee_doc.name, lt.name, first_day_next_year)
-				if not allocation_name and lt.name != "Leave Without Pay":
-					insert_new_allocation(employee_doc.name, lt.name, 0, next_year)
+		today = getdate()
+		update_allocation_for_year(employee_doc, first_day_next_year, today)
+
 		frappe.local.workplan_patch_running = False
 
 
