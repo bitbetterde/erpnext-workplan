@@ -13,9 +13,11 @@ def execute():
 	leave_types = frappe.get_all("Leave Type")
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt)
-		leave_type_doc.custom_automatic_allocation = 1
 		if lt == "Vacation":
 			leave_type_doc.custom_automatic_allocation_calculation_ = 1
+			leave_type_doc.custom_automatic_allocation = 1
+		elif leave_type_doc.is_compensatory == 1:
+			leave_type_doc.custom_automatic_allocation = 1
 		leave_type_doc.save()
 
 	frappe.local.workplan_patch_running = True
