@@ -1,15 +1,15 @@
 import frappe
 from frappe.utils import getdate
+from frappe.utils.fixtures import sync_fixtures
 
 from workplan.workplan.overrides.leave_allocation_new import (
-	get_allocation_name,
-	insert_new_allocation,
 	update_allocation_for_year,
 )
 
 
 # 55 ohne workplan oder stunden 0, 60(!) ohne policy fuer vacation
 def execute():
+	sync_fixtures()
 	leave_types = frappe.get_all("Leave Type")
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt)

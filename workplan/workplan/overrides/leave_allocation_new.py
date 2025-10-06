@@ -163,7 +163,9 @@ def get_policy_value(workplan, leave_type):
 		},
 		fields=["annual_allocation"],
 	)
-	return details[0].annual_allocation
+	if details:
+		return details[0].annual_allocation
+	return 0
 
 
 def resolve_end(end, year):
@@ -204,7 +206,9 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 		carry_forward_days = get_carry_forward_days(employee_doc, leave_type, last_day_last_year)
 		days_allocated += carry_forward_days
 
-	return days_allocated
+	if days_allocated:
+		return days_allocated
+	return 0
 
 
 def calc_workplan_sum(workplan) -> float:
