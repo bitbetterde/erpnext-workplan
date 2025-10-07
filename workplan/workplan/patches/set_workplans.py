@@ -24,10 +24,10 @@ def execute():
 	print("Migrating Workplans")
 	# for all employees
 	#   insert workplan to custom_workplans
-	next_year = getdate().year + 1
-	first_day_next_year = getdate(f"{next_year}-01-01")
+	current_year = getdate().year
+	first_day_next_year = getdate(f"{current_year + 1}-01-01")
+	first_day_this_year = getdate(f"{current_year}-01-01")
 	leave_types = frappe.get_all("Leave Type")
-	today = getdate()
 	leave_type = "Vacation"
 	employees = frappe.get_all("Employee", filters={"status": "Active"})
 	for e in employees:
@@ -49,7 +49,7 @@ def execute():
 				employee_doc.append(
 					"custom_workplans",
 					{
-						"start": today,
+						"start": first_day_this_year,
 						"policy": policy,
 						"monday": employee_doc.custom_monday,
 						"tuesday": employee_doc.custom_tuesday,
