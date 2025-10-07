@@ -75,6 +75,7 @@ def validate_used_days_for_year(doc, year, leave_type):
 			"from_date": (">=", from_date),
 			"to_date": ("<=", to_date),
 			"leave_type": leave_type,
+			"docstatus": "1",
 		},
 		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
 	)
