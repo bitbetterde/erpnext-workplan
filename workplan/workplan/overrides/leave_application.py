@@ -166,6 +166,7 @@ def update_application_days_value(employee_doc, method):
 			"from_date": (">=", first_day_this_year),
 			"to_date": ("<=", last_day_next_year),
 			"docstatus": ("!=", 2),
+			"approval_state": ("!=", "Canceled"),
 		},
 		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
 	)
