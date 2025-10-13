@@ -114,7 +114,10 @@ def get_number_of_leave_day_for_employee_doc(
 	result = 0
 	start = from_date
 	if not workplan:
-		frappe.throw("Workplan for already applied Vacation missing")
+		# check if there are actually vacations applied for
+		frappe.throw(
+			"Workplan for already applied Vacation missing. Cancel the Applications in the Workplan before deleting the Workplan itself."
+		)
 	if workplan.end:
 		while workplan.end and getdate(workplan.end) < to_date:
 			result += get_number_of_leave_days_for_workplan(
@@ -122,7 +125,10 @@ def get_number_of_leave_day_for_employee_doc(
 			)
 			workplan = get_next_workplan(employee_doc, workplan.end)
 			if not workplan:
-				frappe.throw("Workplan for already applied Vacation missing")
+				# check if there are actually vacations applied for
+				frappe.throw(
+					"Workplan for already applied Vacation missing. Cancel the Applications in the Workplan before deleting the Workplan itself."
+				)
 			start = workplan.start
 
 		result += get_number_of_leave_days_for_workplan(
@@ -159,6 +165,7 @@ def update_application_days_value(employee_doc, method):
 			"employee": employee_doc.name,
 			"from_date": (">=", first_day_this_year),
 			"to_date": ("<=", last_day_next_year),
+			"docstatus": ("!=", 2),
 		},
 		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
 	)

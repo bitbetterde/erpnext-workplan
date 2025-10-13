@@ -84,11 +84,6 @@ def validate_used_days_for_year(doc, year, leave_type):
 
 	leaves_taken = 0
 	for application in applications:
-		print(
-			get_number_of_leave_day_for_employee_doc(
-				doc, leave_type, application.from_date, application.to_date
-			)
-		)
 		leaves_taken += get_number_of_leave_day_for_employee_doc(
 			doc, leave_type, application.from_date, application.to_date
 		)
