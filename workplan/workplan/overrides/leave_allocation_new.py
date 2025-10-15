@@ -201,7 +201,18 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 			days_allocated += days_allocated_in_workplan
 			workplan = get_next_workplan(employee_doc, end)
 
-	if leave_type_doc.is_carry_forward and from_date.year == today.year:
+	allocation_name = get_allocation_name(employee_doc.name, leave_type_doc.name, last_day)
+
+	allocation_doc = None
+	if allocation_name:
+		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+
+	# if the allocation has carry_forward already set (only human created allocations) no additional carry forward is set
+	if (
+		leave_type_doc.is_carry_forward
+		and from_date.year == today.year
+		and not (allocation_doc and allocation_doc.carry_forward == 1)
+	):
 		last_day_last_year = getdate(f"{from_date.year-1}-12-31")
 		carry_forward_days = get_carry_forward_days(employee_doc, leave_type, last_day_last_year)
 		days_allocated += carry_forward_days

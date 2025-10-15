@@ -141,7 +141,6 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-	"Leave Allocation": {"before_insert": "workplan.workplan.overrides.leave_allocation.update"},
 	"Employee": {
 		"before_save": "workplan.workplan.overrides.leave_allocation_new.update_all_allocations",
 		"validate": "workplan.workplan.overrides.workplan_validation.validate_workplans",
