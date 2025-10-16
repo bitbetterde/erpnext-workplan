@@ -201,11 +201,7 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 			days_allocated += days_allocated_in_workplan
 			workplan = get_next_workplan(employee_doc, end)
 
-	allocation_name = get_allocation_name(employee_doc.name, leave_type_doc.name, last_day)
-
-	allocation_doc = None
-	if allocation_name:
-		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+	allocation_doc = get_allocation_doc(employee_doc.name, leave_type_doc.name, last_day)
 
 	# if the allocation has carry_forward already set (only human created allocations) no additional carry forward is set
 	if (
@@ -224,3 +220,13 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 
 def calc_workplan_sum(workplan) -> float:
 	return sum([workplan.monday, workplan.tuesday, workplan.wednesday, workplan.thursday, workplan.friday])
+
+
+def get_allocation_doc(employee_name, leave_type, date):
+	allocation_name = get_allocation_name(employee_name, leave_type, date)
+
+	allocation_doc = None
+	if allocation_name:
+		allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+
+	return allocation_doc

@@ -4,6 +4,7 @@ from hrms.hr.doctype.leave_application.leave_application import get_approved_lea
 
 from workplan.workplan.overrides.leave_allocation_new import (
 	calc_allocation_value,
+	get_allocation_doc,
 	get_current_workplan,
 	get_next_workplan,
 	resolve_end,
@@ -89,6 +90,12 @@ def validate_used_days_for_year(doc, year, leave_type):
 		)
 
 	new_allocation = calc_allocation_value(doc, from_date, leave_type)
+
+	allocation_doc = get_allocation_doc(doc.name, leave_type, to_date)
+
+	if allocation_doc and allocation_doc.carry_forward == 1:
+		new_allocation += allocation_doc.unused_leaves
+
 	if flt(leaves_taken) > flt(new_allocation):
 		frappe.throw(
 			frappe._(
