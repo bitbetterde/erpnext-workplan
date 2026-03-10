@@ -391,30 +391,125 @@ def update_application_days_value(employee_doc, method):
 			)
 			lwp = frappe.db.get_value("Leave Type", application_doc.leave_type, "is_lwp")
 
+			raise_exception = False if frappe.flags.in_patch else True
+			holiday_list = (
+				get_holiday_list_for_employee(application_doc.employee, raise_exception=raise_exception) or ""
+			)
+
 			if expiry_date:
-				application_doc.create_ledger_entry_for_intermediate_allocation_expiry(expiry_date, True, lwp)
+				split_date = expiry_date
 			else:
 				(
 					alloc_on_from_date,
 					alloc_on_to_date,
 				) = application_doc.get_allocation_based_on_application_dates()
 				if application_doc.is_separate_ledger_entry_required(alloc_on_from_date, alloc_on_to_date):
-					application_doc.create_separate_ledger_entries(
-						alloc_on_from_date, alloc_on_to_date, True, lwp
-					)
+					split_date = alloc_on_from_date.to_date
 				else:
-					raise_exception = False if frappe.flags.in_patch else True
-					args = dict(
-						leaves=leaves_to_be_added,
-						from_date=application_doc.from_date,
-						to_date=application_doc.to_date,
-						is_lwp=lwp,
-						holiday_list=get_holiday_list_for_employee(
-							application_doc.employee, raise_exception=raise_exception
-						)
-						or "",
+					split_date = None
+
+			if split_date:
+				# The application spans two ledger entries (split at expiry date or allocation boundary).
+				# We must create per-sub-period delta corrections rather than calling HRMS functions
+				# that would recreate full entries on top of the existing ones.
+				base_filters = {
+					"transaction_type": "Leave Application",
+					"transaction_name": application.name,
+					"employee": employee_doc.name,
+					"leave_type": application.leave_type,
+					"docstatus": 1,
+				}
+
+				pre_entries = frappe.get_all(
+					"Leave Ledger Entry",
+					filters={**base_filters, "to_date": ("<=", split_date)},
+					fields=["SUM(leaves) as total_leaves"],
+				)
+				existing_pre = pre_entries[0].total_leaves or 0 if pre_entries else 0
+
+				post_entries = frappe.get_all(
+					"Leave Ledger Entry",
+					filters={**base_filters, "from_date": (">", split_date)},
+					fields=["SUM(leaves) as total_leaves"],
+				)
+				existing_post = post_entries[0].total_leaves or 0 if post_entries else 0
+
+				fractional_value = flt(application_doc.custom_fractional_day_value)
+				# `date` is the last workday with hours, computed above from the updated workplan.
+				fractional_in_post = fractional_value > 0 and getdate(date) > getdate(split_date)
+				fractional_in_pre = fractional_value > 0 and getdate(date) <= getdate(split_date)
+
+				if fractional_in_post:
+					# Fractional day is after the split: calculate pre-expiry directly (safe),
+					# derive post-expiry to preserve the fractional component.
+					new_pre_days = get_number_of_leave_days(
+						employee_doc.name,
+						application.leave_type,
+						application_doc.from_date,
+						split_date,
 					)
-					create_leave_ledger_entry(application_doc, args, True)
+					new_post_days = new_total_leave_days - new_pre_days
+				elif fractional_in_pre:
+					# Fractional day is before the split: calculate post-expiry directly (safe),
+					# derive pre-expiry to preserve the fractional component.
+					new_post_days = get_number_of_leave_days(
+						employee_doc.name,
+						application.leave_type,
+						add_days(split_date, 1),
+						application_doc.to_date,
+					)
+					new_pre_days = new_total_leave_days - new_post_days
+				else:
+					# No fractional day: both sub-period calls are safe.
+					new_pre_days = get_number_of_leave_days(
+						employee_doc.name,
+						application.leave_type,
+						application_doc.from_date,
+						split_date,
+					)
+					new_post_days = get_number_of_leave_days(
+						employee_doc.name,
+						application.leave_type,
+						add_days(split_date, 1),
+						application_doc.to_date,
+					)
+
+				delta_pre = flt(-(new_pre_days + existing_pre))
+				delta_post = flt(-(new_post_days + existing_post))
+
+				if delta_pre:
+					create_leave_ledger_entry(
+						application_doc,
+						dict(
+							leaves=delta_pre,
+							from_date=application_doc.from_date,
+							to_date=split_date,
+							is_lwp=lwp,
+							holiday_list=holiday_list,
+						),
+						True,
+					)
+				if delta_post:
+					create_leave_ledger_entry(
+						application_doc,
+						dict(
+							leaves=delta_post,
+							from_date=add_days(split_date, 1),
+							to_date=application_doc.to_date,
+							is_lwp=lwp,
+							holiday_list=holiday_list,
+						),
+						True,
+					)
+			else:
+				args = dict(
+					leaves=leaves_to_be_added,
+					from_date=application_doc.from_date,
+					to_date=application_doc.to_date,
+					is_lwp=lwp,
+					holiday_list=holiday_list,
+				)
+				create_leave_ledger_entry(application_doc, args, True)
 
 
 def get_leaves_for_period(
@@ -426,7 +521,7 @@ def get_leaves_for_period(
 ) -> float:
 	leave_entries = get_leave_entries(employee, leave_type, from_date, to_date)
 	leave_days = 0
-	processed_leave_applications = set()
+	processed_leave_entry_from_dates = set()
 	for leave_entry in leave_entries:
 		inclusive_period = leave_entry.from_date >= getdate(from_date) and leave_entry.to_date <= getdate(
 			to_date
@@ -444,9 +539,9 @@ def get_leaves_for_period(
 			leave_days += leave_entry.leaves
 
 		elif leave_entry.transaction_type == "Leave Application":
-			if leave_entry.transaction_name in processed_leave_applications:
+			if leave_entry.from_date in processed_leave_entry_from_dates:
 				continue
-			processed_leave_applications.add(leave_entry.transaction_name)
+			processed_leave_entry_from_dates.add(leave_entry.from_date)
 			if leave_entry.from_date < getdate(from_date):
 				leave_entry.from_date = from_date
 			if leave_entry.to_date > getdate(to_date):

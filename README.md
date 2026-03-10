@@ -4,6 +4,10 @@ This is an App for ERPNext allows leave calculations based on expected working h
 
 To save the expected working hours per day, it adds a new "Workplan" DocType to every Employee (under the "Attendance & Leaves" Tab). A workplan is a schedule of expected/regular working hours per day (e.g. a Workplan could look like "Monday 8 h, Tuesday 6h, Wednesday 8h, Thursday 4h, Friday 4h"). A workplan also has a start and an end date (because people typically might change their work load sometimes due to changing circumstances).
 
+Whenever a workplan get's changed, the Leave Applications of that Employee get changed accordingly. That way the Application's Total Leave Days always match the hours set by the Employee's workplan set in that time frame. 
+
+If an Employee's available Leave Balance for a Leave Application doesn't fully cover the last day of a leave period, but does cover a part of it, that part is set as a Fractional Leave Day. The date, weekday, hours and minutes still left to work that day are shown in the Leave Application in every step of creation/approval.
+
 
 ### Installation
 
