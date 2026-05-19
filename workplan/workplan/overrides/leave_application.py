@@ -334,21 +334,6 @@ def update_application_days_value(employee_doc, method):
 			employee_doc, application.from_date, application.to_date
 		)
 
-		application_doc = frappe.get_doc("Leave Application", application.name)
-
-		if work_hours / 8 <= flt(application.custom_fractional_day_value):
-			application_doc.custom_fractional_day_value = 0
-			application_doc.custom_last_workday_date = None
-			application_doc.custom_last_workday_weekday = None
-			application_doc.custom_hours_to_work = None
-			application_doc.custom_minutes_to_work = None
-		elif flt(application.custom_fractional_day_value) > 0:
-			total_hours = work_hours - flt(application.custom_fractional_day_value) * 8
-			application_doc.custom_minutes_to_work = math.floor((total_hours - math.floor(total_hours)) * 60)
-			application_doc.custom_hours_to_work = math.floor(total_hours)
-
-		application_doc.save()
-
 		new_total_leave_days = get_number_of_leave_days(
 			employee_doc.name, application.leave_type, application.from_date, application.to_date
 		)
@@ -372,6 +357,22 @@ def update_application_days_value(employee_doc, method):
 			existing_leave_count = 0
 
 		frappe.db.set_value("Leave Application", application.name, "total_leave_days", new_total_leave_days)
+  
+		application_doc = frappe.get_doc("Leave Application", application.name)
+
+		if work_hours / 8 <= flt(application.custom_fractional_day_value):
+			application_doc.custom_fractional_day_value = 0
+			application_doc.custom_last_workday_date = None
+			application_doc.custom_last_workday_weekday = None
+			application_doc.custom_hours_to_work = None
+			application_doc.custom_minutes_to_work = None
+		elif flt(application.custom_fractional_day_value) > 0:
+			total_hours = work_hours - flt(application.custom_fractional_day_value) * 8
+			application_doc.custom_minutes_to_work = math.floor((total_hours - math.floor(total_hours)) * 60)
+			application_doc.custom_hours_to_work = math.floor(total_hours)
+
+		application_doc.save()
+
 		leaves_to_be_added = (
 			flt(
 				(new_total_leave_days + existing_leave_count),

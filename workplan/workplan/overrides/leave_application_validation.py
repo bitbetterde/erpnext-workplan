@@ -84,7 +84,6 @@ class CustomLeaveApplication(LeaveApplication):
 
 			chosen_leave_days = flt(chosen_leave_days, 3)
 			client_total_leave_days = flt(self.total_leave_days, 3)
-
 			# client must have set total_leave_days to one of the valid values
 			valid_totals = {chosen_leave_days}
 			if fractional_leave_days is not None:
@@ -129,6 +128,7 @@ class CustomLeaveApplication(LeaveApplication):
 		if frappe.db.get_value("Leave Type", self.leave_type, "is_optional_leave"):
 			self.validate_optional_leave()
 		self.validate_applicable_after()
+		self.validate_for_self_approval()
 
 	def validate_active_workplan(self):
 		employee = frappe.get_doc("Employee", self.employee)
