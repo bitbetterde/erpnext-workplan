@@ -43,10 +43,11 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 						first_day_of_year_date.year,
 					)
 				else:
-					# no allocation leads to deletion
-					frappe.delete_doc("Leave Allocation", allocation_name)
+					cancel_and_delete_allocation(allocation_name)
 			else:
-				if leave_type_doc.is_carry_forward and first_day_of_year_date.year == today.year:
+				if not employee_has_workplan_in_year(employee_doc, first_day_of_year_date.year):
+					cancel_and_delete_allocation(allocation_name)
+				elif leave_type_doc.is_carry_forward and first_day_of_year_date.year == today.year:
 					carry_forward_days = get_carry_forward_days(
 						employee_doc,
 						leave_type_doc.name,
@@ -156,6 +157,31 @@ def fraction_of_year(start, end):
 	start = getdate(start)
 	days = (end - start).days + 1
 	return days / 365
+
+
+def cancel_and_delete_allocation(allocation_name):
+	if not allocation_name:
+		return
+	allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+	if allocation_doc.docstatus == 1:
+		allocation_doc.cancel()
+	frappe.delete_doc("Leave Allocation", allocation_name)
+
+
+def employee_has_workplan_in_year(employee_doc, year):
+	first_day = getdate(f"{year}-01-01")
+	last_day = getdate(f"{year}-12-31")
+	for w in employee_doc.custom_workplans:
+		start = getdate(w.start) if w.start else None
+		end = getdate(w.end) if w.end else None
+		if start is None:
+			continue
+		if start > last_day:
+			continue
+		if end and end < first_day:
+			continue
+		return True
+	return False
 
 
 def get_current_workplan(employee_doc, date):
