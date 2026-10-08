@@ -205,13 +205,19 @@ override_whitelisted_methods = {
 
 # Request Events
 # ----------------
-# before_request = ["workplan.utils.before_request"]
+# make sure the HRMS functions are patched before any request is handled (hooks are cached, so the
+# workplan package is not necessarily imported before HRMS code runs)
+before_request = ["workplan.utils.ensure_patches"]
 # after_request = ["workplan.utils.after_request"]
 
 # Job Events
 # ----------
-# before_job = ["workplan.utils.before_job"]
+before_job = ["workplan.utils.ensure_patches"]
 # after_job = ["workplan.utils.after_job"]
+
+# Migration
+# ----------
+before_migrate = ["workplan.utils.ensure_patches"]
 
 # User Data Protection
 # --------------------

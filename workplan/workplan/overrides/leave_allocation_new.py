@@ -21,7 +21,7 @@ def update_all_allocations(employee_doc, method):
 
 def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 	last_day_of_year_date = getdate(f"{first_day_of_year_date.year}-12-31")
-	last_day_last_year_date = getdate(f"{first_day_of_year_date.year-1}-12-31")
+	last_day_last_year_date = getdate(f"{first_day_of_year_date.year - 1}-12-31")
 	leave_types = frappe.get_all("Leave Type")
 	for lt in leave_types:
 		leave_type_doc = frappe.get_doc("Leave Type", lt.name)
@@ -42,9 +42,9 @@ def update_allocation_for_year(employee_doc, first_day_of_year_date, today):
 						leave_type_doc.name,
 						first_day_of_year_date.year,
 					)
-				else:
+				elif allocation_name:
 					# no allocation leads to deletion
-					frappe.delete_doc("Leave Allocation", allocation_name)
+					remove_allocation(allocation_name)
 			else:
 				if leave_type_doc.is_carry_forward and first_day_of_year_date.year == today.year:
 					carry_forward_days = get_carry_forward_days(
@@ -120,6 +120,18 @@ def insert_new_allocation(employee_name, leave_type, allocation_value, year):
 		}
 	)
 	allocation_doc.insert()
+
+
+def remove_allocation(allocation_name):
+	"""Removes a submitted allocation whose value dropped to 0.
+
+	HRMS does not allow allocations with 0 leaves (except for earned/compensatory leave types) and
+	submitted documents cannot be deleted directly, so the allocation is cancelled first (which removes
+	its Leave Ledger Entries via HRMS) and deleted afterwards."""
+	allocation_doc = frappe.get_doc("Leave Allocation", allocation_name)
+	if allocation_doc.docstatus == 1:
+		allocation_doc.cancel()
+	frappe.delete_doc("Leave Allocation", allocation_doc.name)
 
 
 def update_allocation(
@@ -247,7 +259,7 @@ def calc_allocation_value(employee_doc, from_date, leave_type):
 		and from_date.year == today.year
 		and not (allocation_doc and allocation_doc.carry_forward == 1)
 	):
-		last_day_last_year = getdate(f"{from_date.year-1}-12-31")
+		last_day_last_year = getdate(f"{from_date.year - 1}-12-31")
 		first_day_this_year = getdate(f"{from_date.year}-01-01")
 		carry_forward_days = get_carry_forward_days(
 			employee_doc, leave_type, last_day_last_year, first_day_this_year

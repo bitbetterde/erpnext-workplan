@@ -14,6 +14,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import create_leave_ledger_entry
 from hrms.utils.holiday_list import get_holiday_dates_between
 
+from workplan.utils import leave_application_kwargs
 from workplan.workplan.overrides.leave_allocation_new import get_current_workplan, get_next_workplan
 
 
@@ -29,7 +30,7 @@ def get_number_of_leave_working_days(
 	print(f"get_number_of_leave_days {employee} {leave_type} {from_date} {to_date}")
 	number_of_weekdays = get_weekdays_diff(from_date, to_date)
 
-	print(f"number_of_weekdays {number_of_weekdays} {from_date} { to_date}")
+	print(f"number_of_weekdays {number_of_weekdays} {from_date} {to_date}")
 
 	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
 		print(f"Leave Type {leave_type} not includes holidays as leaves")
@@ -59,7 +60,7 @@ def get_number_of_leave_days_for_workplan(
 	print(f"get_number_of_leave_days {employee_doc.name} {leave_type} {from_date} {to_date}")
 	number_of_weekdays = get_weekdays_diff(from_date, to_date)
 
-	print(f"number_of_weekdays {number_of_weekdays} {from_date} { to_date}")
+	print(f"number_of_weekdays {number_of_weekdays} {from_date} {to_date}")
 
 	if not frappe.db.get_value("Leave Type", leave_type, "include_holiday"):
 		print(f"Leave Type {leave_type} not includes holidays as leaves")
@@ -117,7 +118,11 @@ def get_number_of_leave_days_for_workplan(
 
 @frappe.whitelist()
 def get_fractional_leave_details(
-	employee: str, leave_type: str, from_date: datetime.date, to_date: datetime.date
+	employee: str,
+	leave_type: str,
+	from_date: datetime.date,
+	to_date: datetime.date,
+	leave_application: str | None = None,
 ):
 	employee_doc = frappe.get_doc("Employee", employee)
 	leave_days_requested = get_number_of_leave_day_for_employee_doc(
@@ -130,6 +135,7 @@ def get_fractional_leave_details(
 		to_date,
 		consider_all_leaves_in_the_allocation_period=True,
 		for_consumption=True,
+		**leave_application_kwargs(leave_application),
 	)
 	leave_balance_for_consumption = flt(leave_balance.get("leave_balance_for_consumption"), 3)
 
@@ -235,12 +241,13 @@ def get_number_of_leave_days_leave_application(
 	half_day: int | str | None = None,
 	half_day_date: datetime.date | str | None = None,
 	holiday_list: str | None = None,
+	leave_application: str | None = None,
 ):
 	"""Returns number of leave days between 2 dates after considering half day and holidays
 	(Based on the include_holiday setting in Leave Type)"""
 
 	leave_balance, fractional_work, last_workday_date, fractional_vacation = get_fractional_leave_details(
-		employee, leave_type, from_date, to_date
+		employee, leave_type, from_date, to_date, leave_application=leave_application
 	)
 
 	return {
@@ -307,15 +314,18 @@ def update_application_days_value(employee_doc, method):
 	current_year = getdate().year
 	first_day_this_year = getdate(f"{current_year}-01-01")
 	last_day_next_year = getdate(f"{current_year + 1}-12-31")
+	filters = {
+		"employee": employee_doc.name,
+		"from_date": (">=", first_day_this_year),
+		"to_date": ("<=", last_day_next_year),
+		"docstatus": ("!=", 2),
+	}
+	# approval_state is the workflow state field of the Leave Application workflow (not part of this app)
+	if frappe.get_meta("Leave Application").has_field("approval_state"):
+		filters["approval_state"] = ("!=", "Canceled")
 	applications = frappe.get_all(
 		"Leave Application",
-		filters={
-			"employee": employee_doc.name,
-			"from_date": (">=", first_day_this_year),
-			"to_date": ("<=", last_day_next_year),
-			"docstatus": ("!=", 2),
-			"approval_state": ("!=", "Canceled"),
-		},
+		filters=filters,
 		fields=[
 			"name",
 			"from_date",
@@ -357,7 +367,7 @@ def update_application_days_value(employee_doc, method):
 			existing_leave_count = 0
 
 		frappe.db.set_value("Leave Application", application.name, "total_leave_days", new_total_leave_days)
-  
+
 		application_doc = frappe.get_doc("Leave Application", application.name)
 
 		if work_hours / 8 <= flt(application.custom_fractional_day_value):

@@ -13,6 +13,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 	validate_active_employee,
 )
 
+from workplan.utils import leave_application_kwargs
 from workplan.workplan.overrides.leave_allocation_new import get_current_workplan
 from workplan.workplan.overrides.leave_application import (
 	get_number_of_leave_days,
@@ -54,6 +55,9 @@ class CustomLeaveApplication(LeaveApplication):
 
 	def validate_balance_leaves(self):
 		precision = cint(frappe.db.get_single_value("System Settings", "float_precision")) or 2
+		# lets users who can read this application (e.g. leave approvers) pass HRMS' permission check
+		# even without read permission on the Employee
+		leave_application = None if self.is_new() else self.name
 
 		if self.from_date and self.to_date:
 			# calculates with workplan but without possible fractional leave day
@@ -80,6 +84,7 @@ class CustomLeaveApplication(LeaveApplication):
 				self.to_date,
 				self.half_day,
 				self.half_day_date,
+				leave_application=leave_application,
 			)["total_leave_days"]
 
 			chosen_leave_days = flt(chosen_leave_days, 3)
@@ -100,6 +105,7 @@ class CustomLeaveApplication(LeaveApplication):
 					self.to_date,
 					consider_all_leaves_in_the_allocation_period=True,
 					for_consumption=True,
+					**leave_application_kwargs(leave_application),
 				)
 				leave_balance_for_consumption = flt(
 					leave_balance.get("leave_balance_for_consumption"), precision
