@@ -36,7 +36,7 @@ def validate_workplan_overlaps(doc):
 				end2 = getdate("9999-12-31")
 
 			if (start <= end2) and (start2 <= end):
-				frappe.throw(f"Work plan periods overlap: " f"({start}–{end}) and ({start2}–{end2})")
+				frappe.throw(f"Work plan periods overlap: ({start}–{end}) and ({start2}–{end2})")
 
 
 def validate_end_after_start(doc):
@@ -72,19 +72,30 @@ def validate_used_days_for_year(doc, year, leave_type):
 			"to_date": ("<=", to_date),
 			"leave_type": leave_type,
 			"docstatus": "1",
+			"status": "Approved",
 		},
 		fields=["name", "from_date", "to_date", "leave_type", "total_leave_days"],
 	)
 	if not applications:
 		return
 
+	new_allocation, carry_forward = calc_allocation_value(doc, from_date, leave_type)
+
+	# with an allocation value of 0 the allocation would be removed (see update_allocation_for_year) while
+	# approved leave applications still depend on it. The recalculated leave days of these applications
+	# are 0 as well in that case (e.g. all workplan hours set to 0), so the check below would not catch it.
+	if not flt(new_allocation, 3):
+		frappe.throw(
+			frappe._(
+				"The workplans would result in an allocation of 0 days of {0} for {1}, but there are already approved leave applications for this period: {2}. Cancel these leave applications before changing the workplans."
+			).format(leave_type, year, ", ".join(application.name for application in applications)),
+		)
+
 	leaves_taken = 0
 	for application in applications:
 		leaves_taken += get_number_of_leave_day_for_employee_doc(
 			doc, leave_type, application.from_date, application.to_date
 		)
-
-	new_allocation, carry_forward = calc_allocation_value(doc, from_date, leave_type)
 
 	allocation_doc = get_allocation_doc(doc.name, leave_type, to_date)
 
@@ -137,9 +148,9 @@ def validate_workplan_changes(doc):
 						)
 				else:
 					if new_wp.end:
-						if getdate(new_wp.end) < getdate(f"{current_year-1}-12-31"):
+						if getdate(new_wp.end) < getdate(f"{current_year - 1}-12-31"):
 							frappe.throw(
-								f"End date {new_wp.end} is not possible. Earliest possible end date is {current_year-1}-12-31."
+								f"End date {new_wp.end} is not possible. Earliest possible end date is {current_year - 1}-12-31."
 							)
 
 			# hours
