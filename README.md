@@ -18,3 +18,27 @@ cd $PATH_TO_YOUR_BENCH
 bench get-app $URL_OF_THIS_REPO --branch develop
 bench install-app workplan
 ```
+
+### Running the tests
+
+The test suite lives in `workplan/tests` and creates all records it needs (company, holiday list, leave types, leave policies and employees, all prefixed with `_Test Workplan`). Everything is created inside the test transaction and rolled back afterwards. All dates are derived from the current year, because the app allocates leaves for the current and the next year.
+
+Tests can only run on a site that has tests enabled:
+
+```bash
+bench --site $SITE set-config allow_tests true
+```
+
+Run the whole suite:
+
+```bash
+bench --site $SITE run-tests --app workplan
+```
+
+or a single module, e.g.:
+
+```bash
+bench --site $SITE run-tests --app workplan --module workplan.tests.test_workplan_leave_allocation
+```
+
+After changing `hooks.py`, run `bench --site $SITE clear-cache` first, as hooks are cached.
